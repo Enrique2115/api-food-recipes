@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-namespace */
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import {
@@ -5,6 +6,7 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { SwaggerModule } from '@nestjs/swagger';
+import multipart from 'fastify-multipart';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
@@ -37,6 +39,14 @@ async function bootstrap() {
     }),
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  await app.register(multipart, {
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5mb
+      files: 1, // 1 file max
+    },
+  });
+
   // Swagger Config
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api', app, document, {
@@ -56,3 +66,24 @@ function handleError(error: unknown) {
 }
 
 process.on('uncaughtException', handleError);
+
+declare global {
+  namespace Storage {
+    interface MultipartFile {
+      toBuffer: () => Promise<Buffer>;
+      file: NodeJS.ReadableStream;
+      filepath: string;
+      fieldname: string;
+      filename: string;
+      encoding: string;
+      mimetype: string;
+      fields: import('fastify-multipart').MultipartFields;
+    }
+  }
+}
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    incomingFile: Storage.MultipartFile;
+  }
+}
